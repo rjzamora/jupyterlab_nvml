@@ -1,18 +1,22 @@
 import {
+  JupyterLab, JupyterLabPlugin, ILayoutRestorer // new
+} from '@jupyterlab/application';
+
+import {
+  ICommandPalette, InstanceTracker // new
+} from '@jupyterlab/apputils';
+
+import {
+  JSONExt // new
+} from '@phosphor/coreutils';
+
+import {
   Message
 } from '@phosphor/messaging';
 
 import {
   Widget
 } from '@phosphor/widgets';
-
-import {
-  ICommandPalette
-} from '@jupyterlab/apputils';
-
-import {
-  JupyterLab, JupyterLabPlugin
-} from '@jupyterlab/application';
 
 import '../style/index.css';
 
@@ -67,53 +71,58 @@ class XkcdWidget extends Widget {
 /**
  * Activate the xckd widget extension.
  */
-function activate(app: JupyterLab, palette: ICommandPalette) {
-  console.log('JupyterLab extension jupyterlab_xkcd is activated!');
+ function activate(app: JupyterLab, palette: ICommandPalette, restorer: ILayoutRestorer) {
+   console.log('JupyterLab extension jupyterlab_xkcd is activated!');
 
-  // Create a single widget
-  let widget: XkcdWidget = new XkcdWidget();
+   // Declare a widget variable
+   let widget: XkcdWidget;
 
-  // Add an application command
-  const command: string = 'xkcd:open';
-  app.commands.addCommand(command, {
-    label: 'Random xkcd comic',
-    execute: () => {
-      if (!widget.isAttached) {
-        // Attach the widget to the main work area if it's not there
-        app.shell.addToMainArea(widget);
-      }
-      // Refresh the comic in the widget
-      widget.update();
-      // Activate the widget
-      app.shell.activateById(widget.id);
-    }
-  });
+   // Add an application command
+   const command: string = 'xkcd:open';
+   app.commands.addCommand(command, {
+     label: 'Random xkcd comic',
+     execute: () => {
+       if (!widget) {
+         // Create a new widget if one does not exist
+         widget = new XkcdWidget();
+         widget.update();
+       }
+       if (!tracker.has(widget)) {
+         // Track the state of the widget for later restoration
+         tracker.add(widget);
+       }
+       if (!widget.isAttached) {
+         // Attach the widget to the main work area if it's not there
+         app.shell.addToMainArea(widget);
+       } else {
+         // Refresh the comic in the widget
+         widget.update();
+       }
+       // Activate the widget
+       app.shell.activateById(widget.id);
+     }
+   });
 
-  // Add the command to the palette.
-  palette.addItem({ command, category: 'Tutorial' });
-};
+   // Add the command to the palette.
+   palette.addItem({ command, category: 'Tutorial' });
 
-/**
- * Initialization data for the jupyterlab_nvml extension.
- */
-/*
-const extension: JupyterLabPlugin<void> = {
-  id: 'jupyterlab_nvml',
-  autoStart: true,
-  activate: (app: JupyterLab) => {
-    console.log('JupyterLab extension jupyterlab_nvml is activated!');
-  }
-};
-*/
+   // Track and restore the widget state
+   let tracker = new InstanceTracker<Widget>({ namespace: 'xkcd' });
+   restorer.restore(tracker, {
+     command,
+     args: () => JSONExt.emptyObject,
+     name: () => 'xkcd'
+   });
+ };
 
 /**
  * Initialization data for the jupyterlab_xkcd extension.
  */
-const extension: JupyterLabPlugin<void> = {
-  id: 'jupyterlab_xkcd',
-  autoStart: true,
-  requires: [ICommandPalette],
-  activate: activate
-};
+ const extension: JupyterLabPlugin<void> = {
+   id: 'jupyterlab_xkcd',
+   autoStart: true,
+   requires: [ICommandPalette, ILayoutRestorer],
+   activate: activate
+ };
 
 export default extension;
